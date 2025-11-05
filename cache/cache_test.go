@@ -5,27 +5,36 @@ import "testing"
 func TestCacheGet(t *testing.T) {
 	cache := NewLRU(2)
 	cache.Put("mew", "test")
-	value := cache.Get("pikachu")
-	if value != nil {
-		t.Errorf("Get('pikachu') want %v received %v", nil, value)
+	value, exists := cache.Get("pikachu")
+	if exists {
+		t.Error("Get('pikachu') should not exist")
 	}
 
-	value = cache.Get("mew")
+	value, exists = cache.Get("mew")
+	if !exists {
+		t.Error("Get('mew') should exist")
+	}
 	if value != "test" {
-		t.Errorf("Get('pikachu') want %s received %v", "test", value)
+		t.Errorf("Get('mew') want %s received %v", "test", value)
 	}
 }
 
 func TestCacheUpdate(t *testing.T) {
 	cache := NewLRU(1)
 	cache.Put("pikachu", 1)
-	value := cache.Get("pikachu")
+	value, exists := cache.Get("pikachu")
+	if !exists {
+		t.Error("Get('mew') should exist")
+	}
 	if value != 1 {
 		t.Errorf("Get('pikachu') want %d received %v", 1, value)
 	}
 
 	cache.Put("pikachu", 3)
-	value = cache.Get("pikachu")
+	value, exists = cache.Get("pikachu")
+	if !exists {
+		t.Error("Get('pikachu') should exist")
+	}
 	if value != 3 {
 		t.Errorf("Get('pikachu') want %d received %v", 3, value)
 	}
@@ -35,9 +44,9 @@ func TestCacheEviction(t *testing.T) {
 	cache := NewLRU(1)
 	cache.Put("pikachu", 1)
 	cache.Put("Espeon", 4)
-	value := cache.Get("pikachu")
-	if value != nil {
-		t.Errorf("Get('pikachu') want %v received %v", nil, value)
+	_, exists := cache.Get("pikachu")
+	if exists {
+		t.Error("Get('pikachu') should not exist")
 	}
 }
 
@@ -47,13 +56,16 @@ func TestCacheEvictionTouched(t *testing.T) {
 	cache.Put("Espeon", 4)
 	cache.Get("pikachu")
 	cache.Put("Jolteon", 12)
-	value := cache.Get("pikachu")
+	value, exists := cache.Get("pikachu")
+	if !exists {
+		t.Error("Get('pikachu') should exist")
+	}
 	if value != 1 {
 		t.Errorf("Get('pikachu') want %d received %v", 1, value)
 	}
-	value = cache.Get("Espeon")
-	if value != nil {
-		t.Errorf("Get('Espeon') want %v received %v", nil, value)
+	value, exists = cache.Get("Espeon")
+	if exists {
+		t.Error("Get('Espeon') should not exist")
 	}
 }
 
