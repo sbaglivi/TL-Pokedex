@@ -26,11 +26,11 @@ func (h *Handler) GetPokemon(c *fiber.Ctx) error {
 
 	if err != nil {
 		if errors.Is(err, types.ErrNotFound) {
-			return c.Status(404).JSON(types.NotFound)
+			return c.Status(404).JSON(types.NotFound.Wrap())
 		}
 
 		slog.Error("failed to get pokemon", "error", err)
-		return c.Status(500).JSON(types.InternalServerError)
+		return c.Status(500).JSON(types.InternalServerError.Wrap())
 	}
 
 	return c.Status(200).JSON(pkmn)
@@ -42,11 +42,11 @@ func (h *Handler) GetPokemonWithTranslation(c *fiber.Ctx) error {
 
 	if err != nil {
 		if errors.Is(err, types.ErrNotFound) {
-			return c.Status(404).JSON(types.NotFound)
+			return c.Status(404).JSON(types.NotFound.Wrap())
 		}
 
 		slog.Error("failed to get pokemon", "error", err)
-		return c.Status(500).JSON(types.InternalServerError)
+		return c.Status(500).JSON(types.InternalServerError.Wrap())
 	}
 
 	return c.Status(200).JSON(pkmn)

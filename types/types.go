@@ -27,6 +27,10 @@ const (
 	InternalServerError HTTPError = "internal server error"
 )
 
+func (err HTTPError) Wrap() map[string]string {
+	return map[string]string{"error": string(err)}
+}
+
 type Pokemon struct {
 	IsLegendary bool   `json:"is_legendary"`
 	Name        string `json:"name"`
