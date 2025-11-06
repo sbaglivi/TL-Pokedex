@@ -10,8 +10,9 @@ const (
 )
 
 var (
-	ErrNotFound = errors.New("not found")
-	ErrGeneric  = errors.New("generic error")
+	ErrNotFound        = errors.New("not found")
+	ErrTooManyRequests = errors.New("too many requests")
+	ErrGeneric         = errors.New("generic error")
 )
 
 type Cache interface {
