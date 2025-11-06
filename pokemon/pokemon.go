@@ -2,15 +2,16 @@ package pokemon
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
 
 	"github.com/sbaglivi/TL-Pokedex/types"
+	"github.com/sbaglivi/TL-Pokedex/utils"
 )
 
 type NameAndURL struct {
@@ -18,7 +19,8 @@ type NameAndURL struct {
 }
 
 type FlavorTextEntry struct {
-	FlavorText string `json:"flavor_text"`
+	FlavorText string     `json:"flavor_text"`
+	Language   NameAndURL `json:"language"`
 }
 
 type APIPokemon struct {
@@ -53,26 +55,31 @@ func NewPokemonService(cache types.Cache, translator Translator, baseURL string,
 	}, nil
 }
 
-var re = regexp.MustCompile(`\s+`)
-
-func removeWhitespace(s string) string {
-	return strings.TrimSpace(re.ReplaceAllString(s, " "))
+func normalize(s string) string {
+	return utils.RemoveWhitespace(strings.ToLower(s))
 }
 
-func normalize(s string) string {
-	return removeWhitespace(strings.ToLower(s))
+func getDescription(entries *[]FlavorTextEntry) string {
+	if len(*entries) == 0 {
+		return ""
+	}
+
+	preferredLanguage := "en"
+	for _, en := range *entries {
+		if en.Language.Name == preferredLanguage {
+			return en.FlavorText
+		}
+	}
+
+	return (*entries)[0].FlavorText
 }
 
 func (pkmn *APIPokemon) toInternal() types.Pokemon {
-	desc := ""
-	if len(pkmn.FlavorTextEntries) > 0 {
-		desc = removeWhitespace(pkmn.FlavorTextEntries[0].FlavorText)
-	}
 	return types.Pokemon{
 		IsLegendary: pkmn.IsLegendary,
 		Name:        pkmn.Name,
 		Habitat:     pkmn.APIHabitat.Name,
-		Desc:        desc,
+		Desc:        utils.RemoveWhitespace(getDescription(&pkmn.FlavorTextEntries)),
 	}
 }
 
@@ -83,7 +90,6 @@ func (ps *PokemonService) getPokemonURL(name string) string {
 
 func (ps *PokemonService) getPokemonFromAPI(name string) (*types.Pokemon, error) {
 	url := ps.getPokemonURL(name)
-	// url := fmt.Sprintf("https://pokeapi.co/api/v2/pokemon-species/%s", name)
 
 	resp, err := ps.client.Get(url)
 	if err != nil {
@@ -147,7 +153,9 @@ func (ps *PokemonService) GetPokemon(name string, translate bool) (*types.GetPok
 	translation := determineTranslationType(pkmn)
 	translated, err := ps.translator.Translate(name, pkmn.Desc, translation)
 	if err != nil {
-		slog.Error("failed to translate description of pokemon %s: %v", name, err)
+		if !errors.Is(types.ErrTooManyRequests, err) {
+			slog.Error("failed to translate description", "pokemon", name, "error", err)
+		}
 		return &types.GetPokemonResult{Pokemon: pkmn, Warnings: []string{"translation failed"}}, nil
 	}
 
