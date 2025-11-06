@@ -18,3 +18,22 @@ type Cache interface {
 	Get(key string) (any, bool)
 	Put(key string, value any)
 }
+
+type HTTPError string
+
+const (
+	NotFound            HTTPError = "not found"
+	InternalServerError HTTPError = "internal server error"
+)
+
+type Pokemon struct {
+	IsLegendary bool   `json:"is_legendary"`
+	Name        string `json:"name"`
+	Habitat     string `json:"habitat"`
+	Desc        string `json:"desc"`
+}
+
+type GetPokemonResult struct {
+	Pokemon  *Pokemon `json:"pokemon"`
+	Warnings []string `json:"warnings,omitempty"`
+}

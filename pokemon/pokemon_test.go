@@ -9,6 +9,7 @@ import (
 
 	"github.com/sbaglivi/TL-Pokedex/cache"
 	"github.com/sbaglivi/TL-Pokedex/translate"
+	"github.com/sbaglivi/TL-Pokedex/types"
 )
 
 func TestAPIPokemonToInternal(t *testing.T) {
@@ -26,7 +27,7 @@ func TestAPIPokemonToInternal(t *testing.T) {
 	}
 
 	if !reflect.DeepEqual(apiPokemon.toInternal(),
-		Pokemon{
+		types.Pokemon{
 			Name:        "Groudon",
 			IsLegendary: true,
 			Desc:        "Test of a weird description",
@@ -73,19 +74,21 @@ func TestGetTranslatedPokemon(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create pokemonService: %v", err)
 	}
-	pkmn, err := pkmnService.GetPokemon("groudon", false)
+	result, err := pkmnService.GetPokemon("groudon", false)
 	if err != nil {
 		t.Fatalf("failed to GetPokemon('groudon', false): %v", err)
 	}
+	pkmn := result.Pokemon
 	expect := "Test of a weird description"
 	if pkmn.Desc != expect {
 		t.Fatalf("GetPokemon('groudon') returned %s expected %s", pkmn.Desc, expect)
 	}
 
-	pkmn, err = pkmnService.GetPokemon("groudon", true)
+	result, err = pkmnService.GetPokemon("groudon", true)
 	if err != nil {
 		t.Fatalf("failed to GetPokemon('groudon', true): %v", err)
 	}
+	pkmn = result.Pokemon
 	expect = "A good morning it is"
 	if pkmn.Desc != expect {
 		t.Errorf("GetPokemon('groudon') returned %s expected %s", pkmn.Desc, expect)
@@ -136,10 +139,11 @@ func TestPokemonCachingBehavior(t *testing.T) {
 		t.Fatalf("creating pokemon service: %v", err)
 	}
 
-	pkmn, err := pkmnService.GetPokemon("groudon", true)
+	result, err := pkmnService.GetPokemon("groudon", true)
 	if err != nil {
 		t.Fatalf("GetPokemon('groudon', true) failed: %v", err)
 	}
+	pkmn := result.Pokemon
 	if pkmn.Desc != "A good morning it is" {
 		t.Errorf("unexpected description: %q", pkmn.Desc)
 	}
@@ -151,7 +155,7 @@ func TestPokemonCachingBehavior(t *testing.T) {
 	}
 
 	// ---- second call (same params): should hit cache only ----
-	pkmn, err = pkmnService.GetPokemon("groudon", true)
+	result, err = pkmnService.GetPokemon("groudon", true)
 	if err != nil {
 		t.Fatalf("GetPokemon('groudon', true) failed: %v", err)
 	}
@@ -163,7 +167,7 @@ func TestPokemonCachingBehavior(t *testing.T) {
 	}
 
 	// ---- third call (no translation): should use cached Pokémon, skip translation ----
-	pkmn, err = pkmnService.GetPokemon("groudon", false)
+	result, err = pkmnService.GetPokemon("groudon", false)
 	if err != nil {
 		t.Fatalf("GetPokemon('groudon', false) failed: %v", err)
 	}

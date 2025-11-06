@@ -28,13 +28,6 @@ type APIPokemon struct {
 	FlavorTextEntries []FlavorTextEntry `json:"flavor_text_entries"`
 }
 
-type Pokemon struct {
-	IsLegendary bool   `json:"is_legendary"`
-	Name        string `json:"name"`
-	Habitat     string `json:"habitat"`
-	Desc        string `json:"desc"`
-}
-
 type Translator interface {
 	Translate(string, string, types.Translation) (*string, error)
 }
@@ -70,12 +63,12 @@ func normalize(s string) string {
 	return removeWhitespace(strings.ToLower(s))
 }
 
-func (pkmn *APIPokemon) toInternal() Pokemon {
+func (pkmn *APIPokemon) toInternal() types.Pokemon {
 	desc := ""
 	if len(pkmn.FlavorTextEntries) > 0 {
 		desc = removeWhitespace(pkmn.FlavorTextEntries[0].FlavorText)
 	}
-	return Pokemon{
+	return types.Pokemon{
 		IsLegendary: pkmn.IsLegendary,
 		Name:        pkmn.Name,
 		Habitat:     pkmn.APIHabitat.Name,
@@ -88,7 +81,7 @@ func (ps *PokemonService) getPokemonURL(name string) string {
 	return ps.baseURL.ResolveReference(rel).String()
 }
 
-func (ps *PokemonService) getPokemonFromAPI(name string) (*Pokemon, error) {
+func (ps *PokemonService) getPokemonFromAPI(name string) (*types.Pokemon, error) {
 	url := ps.getPokemonURL(name)
 	// url := fmt.Sprintf("https://pokeapi.co/api/v2/pokemon-species/%s", name)
 
@@ -119,17 +112,17 @@ func (ps *PokemonService) getPokemonFromAPI(name string) (*Pokemon, error) {
 	return &internal, nil
 }
 
-func determineTranslationType(pkmn *Pokemon) types.Translation {
+func determineTranslationType(pkmn *types.Pokemon) types.Translation {
 	if strings.ToLower(pkmn.Habitat) == "cave" || pkmn.IsLegendary {
 		return types.Yoda
 	}
 	return types.Shakespeare
 }
 
-func (ps *PokemonService) getPokemon(name string) (*Pokemon, error) {
+func (ps *PokemonService) getPokemon(name string) (*types.Pokemon, error) {
 	cached, exists := ps.cache.Get(name)
 	if exists {
-		return cached.(*Pokemon), nil
+		return cached.(*types.Pokemon), nil
 	}
 
 	internal, err := ps.getPokemonFromAPI(name)
@@ -140,7 +133,7 @@ func (ps *PokemonService) getPokemon(name string) (*Pokemon, error) {
 	return internal, nil
 }
 
-func (ps *PokemonService) GetPokemon(name string, translate bool) (*Pokemon, error) {
+func (ps *PokemonService) GetPokemon(name string, translate bool) (*types.GetPokemonResult, error) {
 	name = normalize(name)
 	pkmn, err := ps.getPokemon(name)
 	if err != nil {
@@ -148,17 +141,17 @@ func (ps *PokemonService) GetPokemon(name string, translate bool) (*Pokemon, err
 	}
 
 	if !translate || pkmn.Desc == "" {
-		return pkmn, nil
+		return &types.GetPokemonResult{Pokemon: pkmn, Warnings: nil}, nil
 	}
 
 	translation := determineTranslationType(pkmn)
 	translated, err := ps.translator.Translate(name, pkmn.Desc, translation)
 	if err != nil {
 		slog.Error("failed to translate description of pokemon %s: %v", name, err)
-		return pkmn, nil
+		return &types.GetPokemonResult{Pokemon: pkmn, Warnings: []string{"translation failed"}}, nil
 	}
 
 	p := *pkmn
 	p.Desc = *translated
-	return &p, nil
+	return &types.GetPokemonResult{Pokemon: &p, Warnings: nil}, nil
 }
