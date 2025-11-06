@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/sbaglivi/TL-Pokedex/cache"
@@ -16,20 +17,36 @@ import (
 func createPokemonService() *pokemon.PokemonService {
 	cache := cache.NewLRU(1024)
 	client := http.DefaultClient
-	translateService, err := translate.NewTranslationService(cache, "https://funtranslations.com", client)
+	translateService, err := translate.NewTranslationService(cache, "https://api.funtranslations.com/translate/", client)
 
 	if err != nil {
 		slog.Error("failed to initialize translation service", "error", err)
 		os.Exit(1)
 	}
 
-	pkmnService, err := pokemon.NewPokemonService(cache, translateService, "https://pokeapi.co", client)
+	pkmnService, err := pokemon.NewPokemonService(cache, translateService, "https://pokeapi.co/api/v2/pokemon-species/", client)
 	if err != nil {
 		slog.Error("failed to initialize pokemon service", "error", err)
 		os.Exit(1)
 	}
 
 	return pkmnService
+}
+
+func getPort() int {
+	defaultPort := 3000
+	portStr := os.Getenv("PORT")
+	if portStr == "" {
+		return defaultPort
+	}
+
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		slog.Error("failed to parse PORT env var as int", "port", portStr, "error", err)
+		os.Exit(1)
+	}
+
+	return port
 }
 
 func main() {
@@ -42,7 +59,7 @@ func main() {
 	app := fiber.New()
 	app.Get("/pokemon/:name", handler.GetPokemon)
 	app.Get("/pokemon/translated/:name", handler.GetPokemonWithTranslation)
-	port := 3000
+	port := getPort()
 	err := app.Listen(fmt.Sprintf(":%d", port))
 	if err != nil {
 		slog.Error("failed to start server", "port", port, "error", err)
