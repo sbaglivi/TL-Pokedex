@@ -10,7 +10,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/sbaglivi/TL-Pokedex/cache"
 	"github.com/sbaglivi/TL-Pokedex/types"
 )
 
@@ -41,13 +40,13 @@ type Translator interface {
 }
 
 type PokemonService struct {
-	cache      cache.Cache
+	cache      types.Cache
 	translator Translator
 	baseURL    *url.URL
 	client     *http.Client
 }
 
-func NewPokemonService(cache cache.Cache, translator Translator, baseURL string, client *http.Client) (*PokemonService, error) {
+func NewPokemonService(cache types.Cache, translator Translator, baseURL string, client *http.Client) (*PokemonService, error) {
 	parsed, err := url.Parse(baseURL)
 	if err != nil {
 		return nil, err

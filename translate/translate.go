@@ -9,12 +9,11 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/sbaglivi/TL-Pokedex/cache"
 	"github.com/sbaglivi/TL-Pokedex/types"
 )
 
 type TranslationService struct {
-	cache   cache.Cache
+	cache   types.Cache
 	baseURL *url.URL
 	client  *http.Client
 }
@@ -34,7 +33,7 @@ type TranslationResponse struct {
 	Contents Content `json:"contents"`
 }
 
-func NewTranslationService(cache cache.Cache, baseURL string, client *http.Client) (*TranslationService, error) {
+func NewTranslationService(cache types.Cache, baseURL string, client *http.Client) (*TranslationService, error) {
 	parsed, err := url.Parse(baseURL)
 	if err != nil {
 		return nil, err

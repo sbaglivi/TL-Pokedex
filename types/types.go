@@ -13,3 +13,8 @@ var (
 	ErrNotFound = errors.New("not found")
 	ErrGeneric  = errors.New("generic error")
 )
+
+type Cache interface {
+	Get(key string) (any, bool)
+	Put(key string, value any)
+}
