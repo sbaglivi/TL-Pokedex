@@ -14,21 +14,23 @@ To run the application:
 
 Now, if you'd like to run the application using Docker:
 - install **Docker**:
-  if you use linux see [here](https://docs.docker.com/engine/install/) for instructions; otherwise look [here](https://docs.docker.com/desktop/)
-- run the application: if you have Make installed, you can run `make docker-run`, otherwise you can use the full command `docker build -t tl-pokedex --platform linux/amd64 . && docker run -it --rm --platform linux/amd64 -p 3000:3000 tl-pokedex`. By default the app will be available on port 3000.
+  if you use linux see [here](https://docs.docker.com/engine/install/) for instructions;  
+  otherwise look [here](https://docs.docker.com/desktop/)
+- run the application: if you have Make installed, you can run `make docker-run`, otherwise you can use the full command `docker build -t tl-pokedex --platform linux/amd64 . && docker run -it --rm --platform linux/amd64 -p 3000:3000 tl-pokedex`.  
 
 If instead you'd like to run it outside a container:
 - install **Go**: 
   download the appropriate version for your OS [here](https://go.dev/dl/) and then follow the instructions (specific to your OS) [here](https://go.dev/doc/install)
 - run the application either in development mode: `go run main.go` or build it and then run it `go build -o bin/pokedex && ./bin/pokedex`
 
+By default the app will be listening on port 3000.
 
 ## Usage
 Once the web server is up and running, there should be 2 endpoints available:
 - `GET http://localhost:3000/pokemon/{pokemon_name}`  
 Searches for a pokemon named `{pokemon_name}`   
 If it doesn't find it, it responds with a status code of 404, and a response body `{"error": "not found"}`  
-If an unforeseen error happens it responds with: 500, `{"error": "internal server error"}`  
+If an unforeseen error happens, it responds with: 500, `{"error": "internal server error"}`  
 If everything goes well, an example response looks like this (status code = 200):
 ```json
 {
