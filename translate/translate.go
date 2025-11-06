@@ -3,9 +3,9 @@ package translate
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 
@@ -56,34 +56,40 @@ func (ts *TranslationService) translateWithAPI(s string, translation types.Trans
 	body := map[string]string{"text": s}
 	reqBody, err := json.Marshal(body)
 	if err != nil {
-		return nil, fmt.Errorf("while serializing %s: %w", s, err)
+		return nil, fmt.Errorf("%w while serializing [%s] for translation request: %v", types.ErrGeneric, s, err)
 	}
 	resp, err := ts.client.Post(url, "application/json", bytes.NewReader(reqBody))
 	if err != nil {
-		return nil, fmt.Errorf("while making translation request of type %s: %w", translation, err)
+		return nil, fmt.Errorf("%w while making translation request of type %s for [%s]: %v", types.ErrGeneric, translation, s, err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		return nil, fmt.Errorf("%w unexpected status %d from upstream while requesting translation of type %s for [%s]: %s", types.ErrGeneric, resp.StatusCode, string(translation), s, string(bodyBytes))
 	}
 
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("%w while reading response body for request of type %s: %v", types.ErrGeneric, translation, err)
 	}
 
 	var tslResponse TranslationResponse
 	if err := json.Unmarshal(respBody, &tslResponse); err != nil {
-		panic(err)
+		return nil, fmt.Errorf("%w while unmarshaling response for translation of type %s: %v", types.ErrGeneric, translation, err)
 	}
 
 	if tslResponse.Success.Total != 1 {
-		return nil, errors.New("translation API response has success != 1")
+		return nil, fmt.Errorf("%w response for translation of type %s for [%s] has success.total != 1", types.ErrGeneric, translation, s)
 	}
 	return &tslResponse.Contents.Translated, nil
 }
 
 func (ts *TranslationService) Translate(key, value string, translation types.Translation) (*string, error) {
 	if value == "" {
-		return nil, fmt.Errorf("translation requested with key %s where value is empty", key)
+		slog.Debug(fmt.Sprintf("translation requested with key %s where value is empty", key))
+		return &value, nil
 	}
 
 	key = key + "_translation"

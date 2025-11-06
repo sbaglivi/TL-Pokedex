@@ -95,19 +95,25 @@ func (ps *PokemonService) getPokemonFromAPI(name string) (*Pokemon, error) {
 
 	resp, err := ps.client.Get(url)
 	if err != nil {
-		return nil, fmt.Errorf("while trying to retrieve pokemon from api url %s: %w", url, err)
+		return nil, fmt.Errorf("%w while trying to retrieve pokemon from api url %s: %v", types.ErrGeneric, url, err)
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("%w while searching for pokemon %s", types.ErrNotFound, name)
+
+	} else if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		return nil, fmt.Errorf("%w unexpected status %d from upstream while searching for pokemon %s: %s", types.ErrGeneric, resp.StatusCode, name, string(bodyBytes))
 	}
 
 	defer resp.Body.Close()
-
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("while reading response body for pokemon %s: %w", name, err)
+		return nil, fmt.Errorf("%w while reading response body for pokemon %s: %v", types.ErrGeneric, name, err)
 	}
 
 	var apiPokemon APIPokemon
 	if err := json.Unmarshal(body, &apiPokemon); err != nil {
-		return nil, fmt.Errorf("while unmarshaling response for pokemon %s: %w", name, err)
+		return nil, fmt.Errorf("%w while unmarshaling response for pokemon %s: %v", types.ErrGeneric, name, err)
 	}
 
 	internal := apiPokemon.toInternal()
@@ -141,12 +147,8 @@ func (ps *PokemonService) GetPokemon(name string, translate bool) (*Pokemon, err
 	if err != nil {
 		return nil, err
 	}
-	if !translate {
-		return pkmn, nil
-	}
 
-	if pkmn.Desc == "" {
-		slog.Error("translation requested for pokemon %s but description is empty")
+	if !translate || pkmn.Desc == "" {
 		return pkmn, nil
 	}
 
