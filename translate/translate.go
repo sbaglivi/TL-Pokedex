@@ -10,6 +10,7 @@ import (
 	"net/url"
 
 	"github.com/sbaglivi/TL-Pokedex/types"
+	"github.com/sbaglivi/TL-Pokedex/utils"
 )
 
 type TranslationService struct {
@@ -33,6 +34,14 @@ type TranslationResponse struct {
 	Contents Content `json:"contents"`
 }
 
+type TranslationError struct {
+	Message string `json:"message"`
+}
+
+type TranslationErrorResponse struct {
+	Error TranslationError `json:"error"`
+}
+
 func NewTranslationService(cache types.Cache, baseURL string, client *http.Client) (*TranslationService, error) {
 	parsed, err := url.Parse(baseURL)
 	if err != nil {
@@ -50,6 +59,16 @@ func (ts *TranslationService) toURL(tsl types.Translation) string {
 	return ts.baseURL.ResolveReference(rel).String()
 }
 
+func getErrorMessage(body []byte) string {
+	var errorResponse TranslationErrorResponse
+	err := json.Unmarshal(body, &errorResponse)
+	if err != nil {
+		return string(body[:1024])
+	}
+
+	return errorResponse.Error.Message
+}
+
 func (ts *TranslationService) translateWithAPI(s string, translation types.Translation) (*string, error) {
 	url := ts.toURL(translation)
 	body := map[string]string{"text": s}
@@ -62,16 +81,21 @@ func (ts *TranslationService) translateWithAPI(s string, translation types.Trans
 		return nil, fmt.Errorf("%w while making translation request of type %s for [%s]: %v", types.ErrGeneric, translation, s, err)
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
-		return nil, fmt.Errorf("%w unexpected status %d from upstream while requesting translation of type %s for [%s]: %s", types.ErrGeneric, resp.StatusCode, string(translation), s, string(bodyBytes))
-	}
-
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("%w while reading response body for request of type %s: %v", types.ErrGeneric, translation, err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		detail := getErrorMessage(respBody)
+		if resp.StatusCode == http.StatusTooManyRequests {
+			slog.Info("translation API rate limit hit", "detail", detail)
+			return nil, types.ErrTooManyRequests
+		}
+
+		return nil, fmt.Errorf("%w unexpected status %d from upstream while requesting translation of type %s for [%s]: %s", types.ErrGeneric, resp.StatusCode, string(translation), s, detail)
 	}
 
 	var tslResponse TranslationResponse
@@ -82,7 +106,8 @@ func (ts *TranslationService) translateWithAPI(s string, translation types.Trans
 	if tslResponse.Success.Total != 1 {
 		return nil, fmt.Errorf("%w response for translation of type %s for [%s] has success.total != 1", types.ErrGeneric, translation, s)
 	}
-	return &tslResponse.Contents.Translated, nil
+	cleaned := utils.RemoveWhitespace(tslResponse.Contents.Translated)
+	return &cleaned, nil
 }
 
 func (ts *TranslationService) Translate(key, value string, translation types.Translation) (*string, error) {
