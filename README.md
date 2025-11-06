@@ -1,56 +1,66 @@
 # TL Pokedex
 
-## Endpoints    
-1. Return basic Pokemon information.
+## Description
+A small API written in Go. It offers data about pokemons searched through their name, optionally with a fun twist on the pokemon description.  
+All responses are returned as JSON.  
+It is powered by the [PokéAPI](https://pokeapi.co) and by the [Funtranslations API](https://api.funtranslations.com/).
+
+## How to run the API
+To run the application:
+- install **Git**: 
+  full instructions are available [here](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git?pStoreID=newegg/1000%270%27A=0%27[0])
+- choose the folder where you'd like to install the project, open a terminal in it and then clone the project `git clone https://github.com/sbaglivi/TL-Pokedex`
+- enter the folder you just created `cd TL-Pokedex`
+
+Now, if you'd like to run the application using Docker:
+- install **Docker**:
+  if you use linux see [here](https://docs.docker.com/engine/install/) for instructions; otherwise look [here](https://docs.docker.com/desktop/)
+- run the application: if you have Make installed, you can run `make docker-run`, otherwise you can use the full command `docker build -t tl-pokedex --platform linux/amd64 . && docker run -it --rm --platform linux/amd64 -p 3000:3000 tl-pokedex`. By default the app will be available on port 3000.
+
+If instead you'd like to run it outside a container:
+- install **Go**: 
+  download the appropriate version for your OS [here](https://go.dev/dl/) and then follow the instructions (specific to your OS) [here](https://go.dev/doc/install)
+- run the application either in development mode: `go run main.go` or build it and then run it `go build -o bin/pokedex && ./bin/pokedex`
+
+
+## Usage
+Once the web server is up and running, there should be 2 endpoints available:
+- `GET http://localhost:3000/pokemon/{pokemon_name}`  
+Searches for a pokemon named `{pokemon_name}`   
+If it doesn't find it, it responds with a status code of 404, and a response body `{"error": "not found"}`  
+If an unforeseen error happens it responds with: 500, `{"error": "internal server error"}`  
+If everything goes well, an example response looks like this (status code = 200):
+```json
+{
+  "pokemon": {
+    "is_legendary": false,
+    "name": "espeon",
+    "habitat": "urban",
+    "desc": "It uses the fine hair that covers its body to sense air currents and predict its ene­mies actions."
+  }
+}
 ```
-GET /pokemon/<pokemon name>
-```
-Response: 
-```
-name: str
-desc: str
-habitat: str (? or enum)
-is_legendary: bool
-```
+- `GET http://localhost:3000/pokemon/translated/{pokemon_name}` 
+Searches for a pokemon named `{pokemon_name}` but tries to use the Funtranslations API to modify its description.  
+If everything goes well, the response is exactly like the one above (except for the different description content).  
+In case the Pokemon search encounters an error, the same errors from the previous endpoint might be returned (404, 500).  
+In case the translation encounters a problem - most often because of rate limits - it returns, in addition to the pokemon info, a top-level key in the response `warnings` that informs the user that the translation failed (e.g. `"warnings": ["translation failed"]`).
 
-2. Return basic Pokemon information but with a ‘fun’ translation of the Pokemon description.
-```
-GET /pokemon/translated/<pokemon name>
-```
-Response schema is the same but we apply a transformation to the description.
-Transformation = yoda if (pkmn.habitat == "cave" or pkmn.is_legendary) else "shakespeare"
-If the transformation fails, we return the standard description.
+## Implementation and possible improvements
+The protagonist of the API is the PokemonService (package pokemon). This service depends on a translation service (injected at initialization) and is responsible for fetching data about Pokemons (from the PokeAPI or from a cache) and optionally translate their description.  
+A different solution could've been to create a higher level component that used both the PokemonService and the TranslationService to fulfill the API needs, to avoid giving the responsibility of translations to the PokemonService.  
+For this particular use case, where the only consumer of the TranslationService is the PokemonService, I thought it wasn't necessary.  
 
-Data should be fetched from:
-- [PokéAPI](https://pokeapi.co/): most of what you need is under the pokemon-species API. The Pokemon’s description can be found under the flavor_text array. You can use any of the English descriptions.
-- optionally translated with the [FunTranslations API](https://funtranslations.com)
+Both services utilize a LRU cache to avoid making multiple requests for the same pokemons when possible. A LFU cache could also have been used, and probably even better since I imagine the popularity of a few number of pokemons is vastly superior to the rest.  
+Again, for this particular use case I don't think it matters much, the data we need to handle is so small that we could probably cache all the existing pokemons without ever needing to worry about eviction policies.
 
-## General idea
-- Create services for getting pokemon data, translating descriptions.
-- Create a module to cache data, we'll keep it in memory for this version, in production we'd use something like Redis.
-- Maybe we can expose another endpoint that lists some of the recent viewed pokemon from other users to explore the Pokedex. If this were a real app we'd want to suggest other pokemon through more criteria like: evolutions, same type, same generation etc. For now though going by recently seen helps us to also limit traffic to external APIs since we'll likely have cache hits.
-- we can also create rate limiters, mostly to the API we use so that we avoid being an irresponsible customer. This would come at the expense of latency to the user. 
-- we can also keep track in memory of which requests are currently pending (e.g. for mewtwo), so that we don't start another request
- for something that soon will be in the cache
-- we could also gather stats about the most requested pokemon, so that if we ever have a cold start we can start loading the most wanted items in the cache
-- maybe we should normalize names somehow? In a real app I'd want to suggest corrections for misspellings
-
-
--- to parse --
-● If you would have made a different design decision for production, then comment or
-document it.
-● We love high-value unit tests which test the right things!
-● The task requirements are fairly trivial - we’re more interested in your design decisions,
-code layout and approach (be prepared to explain this).
-
-Please describe in the README.md:
-● How to run it (don't assume anything is already installed)
-● Anything you’d do differently for a production API
-Bonus points for:
-● Dockerfile
-● Include your git history
-Have fun, take your time and when you are done please send a link to your public Github repo to
-your Talent Acquisition Partner!
-
+Some changes that I'd implement if this was a real application:
+- use API versioning
+- add ways to explore pokemons: an endpoint for most frequently searched, add data about the evolutions of the current search, pokemon of the same type, etc.
+- use an external cache, so that if we need to restart the application we won't start from scratch, and if we're running multiple instances of it, we can share data instead of having different copies of the cache
+- add authentication, and rate limiting or a paid plan (or both) so that we can either pay for use of the Funtranslation API or prevent any single user from consuming all free requests
+- start passing a request context in the services methods, so that we can cancel pending requests if the client closes the connection.
+- keep track of which requests to external APIs are pending. This way further requests for the same pokemon can wait on a channel and share the response. Set a timeout so that if the original request does not complete succesfully a new attempt is made.
+- suggest corrections for misspelled pokemon names
 
 
