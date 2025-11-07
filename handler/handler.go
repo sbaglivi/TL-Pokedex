@@ -26,7 +26,7 @@ func NewHandler(pkmnSvc PokemonService) *Handler {
 func (h *Handler) Register(app *fiber.App) {
 	v1 := app.Group("/api/v1")
 	v1.Get("/pokemon/:name", timeout.NewWithContext(h.GetPokemon, time.Second*5))
-	v1.Get("/pokemon/translated/:name", timeout.NewWithContext(h.GetPokemonWithTranslation, time.Second*8))
+	v1.Get("/pokemon/translated/:name", timeout.NewWithContext(h.GetPokemonWithTranslation, time.Second*9))
 }
 
 func handleError(c *fiber.Ctx, err error, logMsg string) error {

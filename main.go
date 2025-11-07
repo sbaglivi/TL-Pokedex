@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/sbaglivi/TL-Pokedex/cache"
@@ -16,7 +17,9 @@ import (
 
 func createPokemonService() (*pokemon.PokemonService, error) {
 	cache := cache.NewLRU(1024)
-	client := http.DefaultClient
+	client := &http.Client{
+		Timeout: 4 * time.Second,
+	}
 	translateService, err := translate.NewTranslationService(cache, "https://api.funtranslations.com/translate/", client)
 
 	if err != nil {
