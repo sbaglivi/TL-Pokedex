@@ -2,6 +2,7 @@ package translate
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -69,14 +70,19 @@ func getErrorMessage(body []byte) string {
 	return errorResponse.Error.Message
 }
 
-func (ts *TranslationService) translateWithAPI(s string, translation types.Translation) (*string, error) {
+func (ts *TranslationService) translateWithAPI(ctx context.Context, s string, translation types.Translation) (*string, error) {
 	url := ts.toURL(translation)
 	body := map[string]string{"text": s}
 	reqBody, err := json.Marshal(body)
 	if err != nil {
 		return nil, fmt.Errorf("%w while serializing [%s] for translation request: %v", types.ErrGeneric, s, err)
 	}
-	resp, err := ts.client.Post(url, "application/json", bytes.NewReader(reqBody))
+	req, err := http.NewRequest("POST", url, bytes.NewReader(reqBody))
+	if err != nil {
+		return nil, fmt.Errorf("%w while preparing POST for url %s to translate [%s]: %v", types.ErrGeneric, url, s, err)
+	}
+
+	resp, err := ts.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("%w while making translation request of type %s for [%s]: %v", types.ErrGeneric, translation, s, err)
 	}
@@ -110,7 +116,7 @@ func (ts *TranslationService) translateWithAPI(s string, translation types.Trans
 	return &cleaned, nil
 }
 
-func (ts *TranslationService) Translate(key, value string, translation types.Translation) (*string, error) {
+func (ts *TranslationService) Translate(ctx context.Context, key, value string, translation types.Translation) (*string, error) {
 	if value == "" {
 		slog.Debug(fmt.Sprintf("translation requested with key %s where value is empty", key))
 		return &value, nil
@@ -122,7 +128,7 @@ func (ts *TranslationService) Translate(key, value string, translation types.Tra
 		return cached.(*string), nil
 	}
 
-	translated, err := ts.translateWithAPI(value, translation)
+	translated, err := ts.translateWithAPI(ctx, value, translation)
 	if err != nil {
 		return nil, err
 	}

@@ -1,6 +1,7 @@
 package translate
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -40,7 +41,8 @@ func TestTranslate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to instantiate translation service: %v", err)
 	}
-	translated, err := svc.Translate("pikachu", to_translate, types.Yoda)
+	ctx := context.Background()
+	translated, err := svc.Translate(ctx, "pikachu", to_translate, types.Yoda)
 	if err != nil {
 		t.Fatalf("translation failed with error: %v", err)
 	}

@@ -32,7 +32,7 @@ type APIPokemon struct {
 }
 
 type Translator interface {
-	Translate(string, string, types.Translation) (*string, error)
+	Translate(context.Context, string, string, types.Translation) (*string, error)
 }
 
 type PokemonService struct {
@@ -156,7 +156,7 @@ func (ps *PokemonService) GetPokemon(ctx context.Context, name string, translate
 	}
 
 	translation := determineTranslationType(pkmn)
-	translated, err := ps.translator.Translate(name, pkmn.Desc, translation)
+	translated, err := ps.translator.Translate(ctx, name, pkmn.Desc, translation)
 	if err != nil {
 		if !errors.Is(types.ErrTooManyRequests, err) {
 			slog.Error("failed to translate description", "pokemon", name, "error", err)
