@@ -13,6 +13,7 @@ import (
 
 	"github.com/sbaglivi/TL-Pokedex/types"
 	"github.com/sbaglivi/TL-Pokedex/utils"
+	"golang.org/x/sync/singleflight"
 )
 
 type NameAndURL struct {
@@ -40,6 +41,7 @@ type PokemonService struct {
 	translator Translator
 	baseURL    *url.URL
 	client     *http.Client
+	group      singleflight.Group
 }
 
 func NewPokemonService(cache types.Cache, translator Translator, baseURL string, client *http.Client) (*PokemonService, error) {
@@ -89,6 +91,18 @@ func (ps *PokemonService) getPokemonURL(name string) string {
 	return ps.baseURL.ResolveReference(rel).String()
 }
 
+func (ps *PokemonService) groupedGetPokemonFromAPI(ctx context.Context, name string) (*types.Pokemon, error) {
+	pkmn, err, shared := ps.group.Do(name, func() (interface{}, error) {
+		return ps.getPokemonFromAPI(ctx, name)
+	})
+
+	if shared {
+		slog.Debug("shared request for poke api", "key", name)
+	}
+
+	return pkmn.(*types.Pokemon), err
+}
+
 func (ps *PokemonService) getPokemonFromAPI(ctx context.Context, name string) (*types.Pokemon, error) {
 	url := ps.getPokemonURL(name)
 
@@ -136,7 +150,7 @@ func (ps *PokemonService) getPokemon(ctx context.Context, name string) (*types.P
 		return cached.(*types.Pokemon), nil
 	}
 
-	internal, err := ps.getPokemonFromAPI(ctx, name)
+	internal, err := ps.groupedGetPokemonFromAPI(ctx, name)
 	if err != nil {
 		return nil, err
 	}

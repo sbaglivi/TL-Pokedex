@@ -12,12 +12,14 @@ import (
 
 	"github.com/sbaglivi/TL-Pokedex/types"
 	"github.com/sbaglivi/TL-Pokedex/utils"
+	"golang.org/x/sync/singleflight"
 )
 
 type TranslationService struct {
 	cache   types.Cache
 	baseURL *url.URL
 	client  *http.Client
+	group   singleflight.Group
 }
 
 type Total struct {
@@ -49,9 +51,9 @@ func NewTranslationService(cache types.Cache, baseURL string, client *http.Clien
 		return nil, err
 	}
 	return &TranslationService{
-		cache,
-		parsed,
-		client,
+		cache:   cache,
+		baseURL: parsed,
+		client:  client,
 	}, nil
 }
 
@@ -70,6 +72,20 @@ func getErrorMessage(body []byte) string {
 	return errorResponse.Error.Message
 }
 
+func (ts *TranslationService) groupedTranslateWithAPI(ctx context.Context, s string, translation types.Translation) (*string, error) {
+	// don't expect same desc for pokemons with different translation methods but just being safe
+	key := fmt.Sprintf("%s-%s", s, string(translation))
+	translated, err, shared := ts.group.Do(key, func() (interface{}, error) {
+		return ts.translateWithAPI(ctx, s, translation)
+	})
+
+	if shared {
+		slog.Debug("shared translation API request", "key", key)
+	}
+
+	return translated.(*string), err
+}
+
 func (ts *TranslationService) translateWithAPI(ctx context.Context, s string, translation types.Translation) (*string, error) {
 	url := ts.toURL(translation)
 	body := map[string]string{"text": s}
@@ -77,7 +93,7 @@ func (ts *TranslationService) translateWithAPI(ctx context.Context, s string, tr
 	if err != nil {
 		return nil, fmt.Errorf("%w while serializing [%s] for translation request: %v", types.ErrGeneric, s, err)
 	}
-	req, err := http.NewRequest("POST", url, bytes.NewReader(reqBody))
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(reqBody))
 	if err != nil {
 		return nil, fmt.Errorf("%w while preparing POST for url %s to translate [%s]: %v", types.ErrGeneric, url, s, err)
 	}
@@ -128,7 +144,7 @@ func (ts *TranslationService) Translate(ctx context.Context, key, value string, 
 		return cached.(*string), nil
 	}
 
-	translated, err := ts.translateWithAPI(ctx, value, translation)
+	translated, err := ts.groupedTranslateWithAPI(ctx, value, translation)
 	if err != nil {
 		return nil, err
 	}
