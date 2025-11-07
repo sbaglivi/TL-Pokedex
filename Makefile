@@ -1,6 +1,6 @@
 IMAGE_NAME := tl-pokedex
 PLATFORM := --platform linux/amd64
-PORT := 4000
+PORT := 3000
 REPO_ROOT := $(shell git rev-parse --show-toplevel)
 BIN_OUT := bin/pokedex
 
