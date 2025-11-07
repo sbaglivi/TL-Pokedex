@@ -60,7 +60,6 @@ Some changes that I'd implement if this was a real application:
 - add ways to explore pokemons: an endpoint for most frequently searched, add data about the evolutions of the current search, pokemon of the same type, etc.
 - use an external cache, so that if we need to restart the application we won't start from scratch, and if we're running multiple instances of it, we can share data instead of having different copies of the cache
 - add authentication, and rate limiting or a paid plan (or both) so that we can either pay for use of the Funtranslation API or prevent any single user from consuming all free requests
-- keep track of which requests to external APIs are pending. This way further requests for the same pokemon can wait on a channel and share the response. Set a timeout so that if the original request does not complete succesfully a new attempt is made.
 - suggest corrections for misspelled pokemon names
 
 
