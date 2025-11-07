@@ -3,6 +3,7 @@ package cache
 import (
 	"container/list"
 	"fmt"
+	"sync"
 )
 
 type Entry struct {
@@ -14,6 +15,7 @@ type LRUCache struct {
 	capacity int
 	items    map[string]*list.Element
 	order    *list.List
+	mu       sync.RWMutex
 }
 
 func NewLRU(cap int) *LRUCache {
@@ -29,6 +31,9 @@ func NewLRU(cap int) *LRUCache {
 }
 
 func (cache *LRUCache) Get(key string) (any, bool) {
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+
 	v, exists := cache.items[key]
 	if !exists {
 		return nil, false
@@ -38,6 +43,9 @@ func (cache *LRUCache) Get(key string) (any, bool) {
 }
 
 func (cache *LRUCache) Put(key string, value any) {
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+
 	v, exists := cache.items[key]
 	if exists {
 		v.Value.(*Entry).value = value
