@@ -1,22 +1,26 @@
 # TL Pokedex
-
-## Description
 A small API written in Go. It offers data about pokemons searched through their name, optionally with a fun twist on the pokemon description.  
-All responses are returned as JSON.  
-It is powered by the [PokéAPI](https://pokeapi.co) and by the [Funtranslations API](https://api.funtranslations.com/).
+All responses are returned as JSON, powered by the [PokéAPI](https://pokeapi.co) and by the [Funtranslations API](https://api.funtranslations.com/).
 
 ## How to run the API
 To run the application:
 - install **Git**: 
-  full instructions are available [here](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git?pStoreID=newegg/1000%270%27A=0%27[0])
-- choose the folder where you'd like to install the project, open a terminal in it and then clone the project `git clone https://github.com/sbaglivi/TL-Pokedex`
-- enter the folder you just created `cd TL-Pokedex`
+  full instructions are available [here](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
+- choose the folder where you'd like to install the project, open a terminal in it and then clone the project and enter its folder
+``` bash
+git clone https://github.com/sbaglivi/TL-Pokedex`
+cd TL-Pokedex
+```
 
 Now, if you'd like to run the application using Docker:
 - install **Docker**:
   if you use linux see [here](https://docs.docker.com/engine/install/) for instructions;  
   otherwise look [here](https://docs.docker.com/desktop/)
-- run the application: if you have Make installed, you can run `make docker-run`, otherwise you can use the full command `docker build -t tl-pokedex --platform linux/amd64 . && docker run -it --rm --platform linux/amd64 -p 3000:3000 tl-pokedex`.  
+- run the application: if you have Make installed, you can run `make docker-run`, otherwise you can use the full command 
+```bash
+docker build -t tl-pokedex --platform linux/amd64 . 
+docker run -it --rm --platform linux/amd64 -p 3000:3000 tl-pokedex`.  
+```
 
 If instead you'd like to run it outside a container:
 - install **Go**: 
@@ -47,6 +51,16 @@ Searches for a pokemon named `{pokemon_name}` but tries to use the Funtranslatio
 If everything goes well, the response is exactly like the one above (except for the different description content).  
 In case the Pokemon search encounters an error, the same errors from the previous endpoint might be returned (404, 500).  
 In case the translation encounters a problem - most often because of rate limits - it returns, in addition to the pokemon info, a top-level key in the response `warnings` that informs the user that the translation failed (e.g. `"warnings": ["translation failed"]`).
+
+## Tech stack
+- Language: Go 1.25
+- Deps: 
+  - [fiber](https://gofiber.io/) as web framework
+  - [x/sync](https://pkg.go.dev/golang.org/x/sync) for singleflight
+  - [stretchr/testify](https://pkg.go.dev/github.com/stretchr/testify@v1.11.1) for more expressive tests
+- External APIs: [PokéAPI](https://pokeapi.co), [Funtranslations API](https://api.funtranslations.com/)
+- Cache: In-memory LRU
+- Containerization: Docker
 
 ## Implementation and possible improvements
 The protagonist of the API is the PokemonService (package pokemon). This service depends on a translation service (injected at initialization) and is responsible for fetching data about Pokemons (from the PokeAPI or from a cache) and optionally translate their description.  
