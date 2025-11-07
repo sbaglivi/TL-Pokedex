@@ -6,11 +6,16 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/sbaglivi/TL-Pokedex/cache"
 	"github.com/sbaglivi/TL-Pokedex/translate"
 	"github.com/sbaglivi/TL-Pokedex/types"
+	"github.com/stretchr/testify/assert"
+	"golang.org/x/sync/singleflight"
 )
 
 func TestAPIPokemonToInternal(t *testing.T) {
@@ -180,4 +185,29 @@ func TestPokemonCachingBehavior(t *testing.T) {
 	if translationCalls != 1 {
 		t.Errorf("translation API should still not be called again, got %d", translationCalls)
 	}
+}
+
+func TestPokemonServiceSingleflight(t *testing.T) {
+	var calls int32
+	svc := &PokemonService{
+		group: singleflight.Group{},
+	}
+
+	svc.getPokemonFromAPIfunc = func(ctx context.Context, name string) (*types.Pokemon, error) {
+		atomic.AddInt32(&calls, 1)
+		time.Sleep(100 * time.Millisecond)
+		return &types.Pokemon{Name: name}, nil
+	}
+
+	wg := sync.WaitGroup{}
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, _ = svc.groupedGetPokemonFromAPI(context.Background(), "pikachu")
+		}()
+	}
+	wg.Wait()
+
+	assert.Equal(t, int32(1), atomic.LoadInt32(&calls), "expected only one API call")
 }

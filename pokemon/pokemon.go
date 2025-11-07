@@ -37,11 +37,12 @@ type Translator interface {
 }
 
 type PokemonService struct {
-	cache      types.Cache
-	translator Translator
-	baseURL    *url.URL
-	client     *http.Client
-	group      singleflight.Group
+	cache                 types.Cache
+	translator            Translator
+	baseURL               *url.URL
+	client                *http.Client
+	group                 singleflight.Group
+	getPokemonFromAPIfunc func(context.Context, string) (*types.Pokemon, error)
 }
 
 func NewPokemonService(cache types.Cache, translator Translator, baseURL string, client *http.Client) (*PokemonService, error) {
@@ -50,12 +51,14 @@ func NewPokemonService(cache types.Cache, translator Translator, baseURL string,
 		return nil, err
 	}
 
-	return &PokemonService{
+	svc := PokemonService{
 		cache:      cache,
 		translator: translator,
 		baseURL:    parsed,
 		client:     client,
-	}, nil
+	}
+	svc.getPokemonFromAPIfunc = svc.getPokemonFromAPI
+	return &svc, nil
 }
 
 func normalize(s string) string {
@@ -93,7 +96,7 @@ func (ps *PokemonService) getPokemonURL(name string) string {
 
 func (ps *PokemonService) groupedGetPokemonFromAPI(ctx context.Context, name string) (*types.Pokemon, error) {
 	pkmn, err, shared := ps.group.Do(name, func() (interface{}, error) {
-		return ps.getPokemonFromAPI(ctx, name)
+		return ps.getPokemonFromAPIfunc(ctx, name)
 	})
 
 	if shared {
