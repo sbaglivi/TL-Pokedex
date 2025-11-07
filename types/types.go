@@ -25,6 +25,7 @@ type HTTPError string
 const (
 	NotFound            HTTPError = "not found"
 	InternalServerError HTTPError = "internal server error"
+	Timeout             HTTPError = "request timed out"
 )
 
 func (err HTTPError) Wrap() map[string]string {

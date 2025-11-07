@@ -1,6 +1,7 @@
 package pokemon
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -88,10 +89,14 @@ func (ps *PokemonService) getPokemonURL(name string) string {
 	return ps.baseURL.ResolveReference(rel).String()
 }
 
-func (ps *PokemonService) getPokemonFromAPI(name string) (*types.Pokemon, error) {
+func (ps *PokemonService) getPokemonFromAPI(ctx context.Context, name string) (*types.Pokemon, error) {
 	url := ps.getPokemonURL(name)
 
-	resp, err := ps.client.Get(url)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("%w while creating req to retrieve pokemon from api with url %s: %v", types.ErrGeneric, url, err)
+	}
+	resp, err := ps.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("%w while trying to retrieve pokemon from api url %s: %v", types.ErrGeneric, url, err)
 	}
@@ -125,13 +130,13 @@ func determineTranslationType(pkmn *types.Pokemon) types.Translation {
 	return types.Shakespeare
 }
 
-func (ps *PokemonService) getPokemon(name string) (*types.Pokemon, error) {
+func (ps *PokemonService) getPokemon(ctx context.Context, name string) (*types.Pokemon, error) {
 	cached, exists := ps.cache.Get(name)
 	if exists {
 		return cached.(*types.Pokemon), nil
 	}
 
-	internal, err := ps.getPokemonFromAPI(name)
+	internal, err := ps.getPokemonFromAPI(ctx, name)
 	if err != nil {
 		return nil, err
 	}
@@ -139,9 +144,9 @@ func (ps *PokemonService) getPokemon(name string) (*types.Pokemon, error) {
 	return internal, nil
 }
 
-func (ps *PokemonService) GetPokemon(name string, translate bool) (*types.GetPokemonResult, error) {
+func (ps *PokemonService) GetPokemon(ctx context.Context, name string, translate bool) (*types.GetPokemonResult, error) {
 	name = normalize(name)
-	pkmn, err := ps.getPokemon(name)
+	pkmn, err := ps.getPokemon(ctx, name)
 	if err != nil {
 		return nil, err
 	}

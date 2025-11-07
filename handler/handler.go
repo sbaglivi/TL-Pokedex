@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 
@@ -9,7 +10,7 @@ import (
 )
 
 type PokemonService interface {
-	GetPokemon(name string, translate bool) (*types.GetPokemonResult, error)
+	GetPokemon(ctx context.Context, name string, translate bool) (*types.GetPokemonResult, error)
 }
 
 type Handler struct {
@@ -20,17 +21,27 @@ func NewHandler(pkmnSvc PokemonService) *Handler {
 	return &Handler{pkmnSvc: pkmnSvc}
 }
 
+func handleError(c *fiber.Ctx, err error, logMsg string) error {
+	switch {
+	case errors.Is(err, context.Canceled):
+		return nil
+	case errors.Is(err, context.DeadlineExceeded):
+		return c.Status(fiber.StatusGatewayTimeout).JSON(types.Timeout.Wrap())
+	case errors.Is(err, types.ErrNotFound):
+		return c.Status(404).JSON(types.NotFound.Wrap())
+	default:
+		slog.Error(logMsg, "error", err)
+		return c.Status(500).JSON(types.InternalServerError.Wrap())
+	}
+}
+
 func (h *Handler) GetPokemon(c *fiber.Ctx) error {
 	name := c.Params("name")
-	pkmn, err := h.pkmnSvc.GetPokemon(name, false)
+	ctx := c.UserContext()
+	pkmn, err := h.pkmnSvc.GetPokemon(ctx, name, false)
 
 	if err != nil {
-		if errors.Is(err, types.ErrNotFound) {
-			return c.Status(404).JSON(types.NotFound.Wrap())
-		}
-
-		slog.Error("failed to get pokemon", "error", err)
-		return c.Status(500).JSON(types.InternalServerError.Wrap())
+		return handleError(c, err, "failed to get pokemon")
 	}
 
 	return c.Status(200).JSON(pkmn)
@@ -38,15 +49,11 @@ func (h *Handler) GetPokemon(c *fiber.Ctx) error {
 
 func (h *Handler) GetPokemonWithTranslation(c *fiber.Ctx) error {
 	name := c.Params("name")
-	pkmn, err := h.pkmnSvc.GetPokemon(name, true)
+	ctx := c.UserContext()
+	pkmn, err := h.pkmnSvc.GetPokemon(ctx, name, true)
 
 	if err != nil {
-		if errors.Is(err, types.ErrNotFound) {
-			return c.Status(404).JSON(types.NotFound.Wrap())
-		}
-
-		slog.Error("failed to get pokemon", "error", err)
-		return c.Status(500).JSON(types.InternalServerError.Wrap())
+		return handleError(c, err, "failed to get pokemon")
 	}
 
 	return c.Status(200).JSON(pkmn)

@@ -1,6 +1,7 @@
 package pokemon
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -74,7 +75,8 @@ func TestGetTranslatedPokemon(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create pokemonService: %v", err)
 	}
-	result, err := pkmnService.GetPokemon("groudon", false)
+	ctx := context.Background()
+	result, err := pkmnService.GetPokemon(ctx, "groudon", false)
 	if err != nil {
 		t.Fatalf("failed to GetPokemon('groudon', false): %v", err)
 	}
@@ -84,7 +86,7 @@ func TestGetTranslatedPokemon(t *testing.T) {
 		t.Fatalf("GetPokemon('groudon') returned %s expected %s", pkmn.Desc, expect)
 	}
 
-	result, err = pkmnService.GetPokemon("groudon", true)
+	result, err = pkmnService.GetPokemon(ctx, "groudon", true)
 	if err != nil {
 		t.Fatalf("failed to GetPokemon('groudon', true): %v", err)
 	}
@@ -139,7 +141,8 @@ func TestPokemonCachingBehavior(t *testing.T) {
 		t.Fatalf("creating pokemon service: %v", err)
 	}
 
-	result, err := pkmnService.GetPokemon("groudon", true)
+	ctx := context.Background()
+	result, err := pkmnService.GetPokemon(ctx, "groudon", true)
 	if err != nil {
 		t.Fatalf("GetPokemon('groudon', true) failed: %v", err)
 	}
@@ -155,7 +158,7 @@ func TestPokemonCachingBehavior(t *testing.T) {
 	}
 
 	// ---- second call (same params): should hit cache only ----
-	result, err = pkmnService.GetPokemon("groudon", true)
+	result, err = pkmnService.GetPokemon(ctx, "groudon", true)
 	if err != nil {
 		t.Fatalf("GetPokemon('groudon', true) failed: %v", err)
 	}
@@ -167,7 +170,7 @@ func TestPokemonCachingBehavior(t *testing.T) {
 	}
 
 	// ---- third call (no translation): should use cached Pokémon, skip translation ----
-	result, err = pkmnService.GetPokemon("groudon", false)
+	result, err = pkmnService.GetPokemon(ctx, "groudon", false)
 	if err != nil {
 		t.Fatalf("GetPokemon('groudon', false) failed: %v", err)
 	}
