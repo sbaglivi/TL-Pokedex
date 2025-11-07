@@ -45,8 +45,9 @@ func main() {
 
 	handler := handler.NewHandler(pkmnService)
 	app := fiber.New()
-	app.Get("/pokemon/:name", timeout.NewWithContext(handler.GetPokemon, time.Second*5))
-	app.Get("/pokemon/translated/:name", timeout.NewWithContext(handler.GetPokemonWithTranslation, time.Second*8))
+	v1 := app.Group("/api/v1")
+	v1.Get("/pokemon/:name", timeout.NewWithContext(handler.GetPokemon, time.Second*5))
+	v1.Get("/pokemon/translated/:name", timeout.NewWithContext(handler.GetPokemonWithTranslation, time.Second*8))
 	port, err := utils.GetPort()
 	if err != nil {
 		slog.Error("failed to parse PORT env var", "error", err)

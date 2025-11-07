@@ -57,11 +57,9 @@ Both services utilize a LRU cache to avoid making multiple requests for the same
 Again, for this particular use case I don't think it matters much, the data we need to handle is so small that we could probably cache all the existing pokemons without ever needing to worry about eviction policies.
 
 Some changes that I'd implement if this was a real application:
-- use API versioning
 - add ways to explore pokemons: an endpoint for most frequently searched, add data about the evolutions of the current search, pokemon of the same type, etc.
 - use an external cache, so that if we need to restart the application we won't start from scratch, and if we're running multiple instances of it, we can share data instead of having different copies of the cache
 - add authentication, and rate limiting or a paid plan (or both) so that we can either pay for use of the Funtranslation API or prevent any single user from consuming all free requests
-- start passing a request context in the services methods, so that we can cancel pending requests if the client closes the connection.
 - keep track of which requests to external APIs are pending. This way further requests for the same pokemon can wait on a channel and share the response. Set a timeout so that if the original request does not complete succesfully a new attempt is made.
 - suggest corrections for misspelled pokemon names
 
