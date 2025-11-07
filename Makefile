@@ -18,3 +18,4 @@ build:
 
 test:
 	go test ${REPO_ROOT}/...
+	go test -race ${REPO_ROOT}/cache

@@ -1,6 +1,10 @@
 package cache
 
-import "testing"
+import (
+	"fmt"
+	"sync"
+	"testing"
+)
 
 func TestCacheGet(t *testing.T) {
 	cache := NewLRU(2)
@@ -77,4 +81,20 @@ func TestNewLRUPanicsOnInvalidCapacity(t *testing.T) {
 	}()
 
 	NewLRU(0)
+}
+
+func TestLRUCacheConcurrentAccess(t *testing.T) {
+	cache := NewLRU(10)
+
+	wg := sync.WaitGroup{}
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			key := fmt.Sprintf("k%d", i%5)
+			cache.Put(key, i)
+			cache.Get(key)
+		}(i)
+	}
+	wg.Wait()
 }
