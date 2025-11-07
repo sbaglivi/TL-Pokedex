@@ -16,10 +16,11 @@ import (
 )
 
 type TranslationService struct {
-	cache   types.Cache
-	baseURL *url.URL
-	client  *http.Client
-	group   singleflight.Group
+	cache                types.Cache
+	baseURL              *url.URL
+	client               *http.Client
+	group                singleflight.Group
+	translateWithAPIfunc func(context.Context, string, types.Translation) (*string, error)
 }
 
 type Total struct {
@@ -50,11 +51,13 @@ func NewTranslationService(cache types.Cache, baseURL string, client *http.Clien
 	if err != nil {
 		return nil, err
 	}
-	return &TranslationService{
+	svc := TranslationService{
 		cache:   cache,
 		baseURL: parsed,
 		client:  client,
-	}, nil
+	}
+	svc.translateWithAPIfunc = svc.translateWithAPI
+	return &svc, nil
 }
 
 func (ts *TranslationService) toURL(tsl types.Translation) string {
@@ -76,7 +79,7 @@ func (ts *TranslationService) groupedTranslateWithAPI(ctx context.Context, s str
 	// don't expect same desc for pokemons with different translation methods but just being safe
 	key := fmt.Sprintf("%s-%s", s, string(translation))
 	translated, err, shared := ts.group.Do(key, func() (interface{}, error) {
-		return ts.translateWithAPI(ctx, s, translation)
+		return ts.translateWithAPIfunc(ctx, s, translation)
 	})
 
 	if shared {

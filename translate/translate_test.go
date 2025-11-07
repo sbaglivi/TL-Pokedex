@@ -5,10 +5,15 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/sbaglivi/TL-Pokedex/cache"
 	"github.com/sbaglivi/TL-Pokedex/types"
+	"github.com/stretchr/testify/assert"
+	"golang.org/x/sync/singleflight"
 )
 
 func TestTranslate(t *testing.T) {
@@ -79,4 +84,30 @@ func TestTranslationURL(t *testing.T) {
 	if result != expected {
 		t.Errorf("URL built %s does not match expected %s", result, expected)
 	}
+}
+
+func TestPokemonServiceSingleflight(t *testing.T) {
+	var calls int32
+	svc := &TranslationService{
+		group: singleflight.Group{},
+	}
+
+	svc.translateWithAPIfunc = func(ctx context.Context, name string, translation types.Translation) (*string, error) {
+		atomic.AddInt32(&calls, 1)
+		time.Sleep(100 * time.Millisecond)
+		test := "test"
+		return &test, nil
+	}
+
+	wg := sync.WaitGroup{}
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, _ = svc.groupedTranslateWithAPI(context.Background(), "pikachu", types.Yoda)
+		}()
+	}
+	wg.Wait()
+
+	assert.Equal(t, int32(1), atomic.LoadInt32(&calls), "expected only one API call")
 }
