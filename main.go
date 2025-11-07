@@ -5,10 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/timeout"
 	"github.com/sbaglivi/TL-Pokedex/cache"
 	"github.com/sbaglivi/TL-Pokedex/handler"
 	"github.com/sbaglivi/TL-Pokedex/pokemon"
@@ -43,11 +41,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	handler := handler.NewHandler(pkmnService)
 	app := fiber.New()
-	v1 := app.Group("/api/v1")
-	v1.Get("/pokemon/:name", timeout.NewWithContext(handler.GetPokemon, time.Second*5))
-	v1.Get("/pokemon/translated/:name", timeout.NewWithContext(handler.GetPokemonWithTranslation, time.Second*8))
+	handler := handler.NewHandler(pkmnService)
+	handler.Register(app)
 	port, err := utils.GetPort()
 	if err != nil {
 		slog.Error("failed to parse PORT env var", "error", err)

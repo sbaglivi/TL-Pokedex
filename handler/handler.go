@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/timeout"
 	"github.com/sbaglivi/TL-Pokedex/types"
 )
 
@@ -19,6 +21,12 @@ type Handler struct {
 
 func NewHandler(pkmnSvc PokemonService) *Handler {
 	return &Handler{pkmnSvc: pkmnSvc}
+}
+
+func (h *Handler) Register(app *fiber.App) {
+	v1 := app.Group("/api/v1")
+	v1.Get("/pokemon/:name", timeout.NewWithContext(h.GetPokemon, time.Second*5))
+	v1.Get("/pokemon/translated/:name", timeout.NewWithContext(h.GetPokemonWithTranslation, time.Second*8))
 }
 
 func handleError(c *fiber.Ctx, err error, logMsg string) error {

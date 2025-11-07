@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/sbaglivi/TL-Pokedex/types"
@@ -29,13 +30,12 @@ func TestGetPokemon(t *testing.T) {
 	mockSvc := new(mockPokemonService)
 	h := &Handler{pkmnSvc: mockSvc}
 
-	app.Get("/pokemon/:name", h.GetPokemon)
+	h.Register(app)
 
 	expected := &types.GetPokemonResult{Pokemon: &types.Pokemon{Name: "Pikachu"}}
-	ctx := context.Background()
-	mockSvc.On("GetPokemon", ctx, "pikachu", false).Return(expected, nil)
+	mockSvc.On("GetPokemon", mock.Anything, "pikachu", false).Return(expected, nil)
 
-	req := httptest.NewRequest("GET", "/pokemon/pikachu", nil)
+	req := httptest.NewRequest("GET", "/api/v1/pokemon/pikachu", nil)
 	resp, _ := app.Test(req, -1)
 
 	body, _ := io.ReadAll(resp.Body)
@@ -49,14 +49,12 @@ func TestGetPokemonTranslationFail(t *testing.T) {
 
 	mockSvc := new(mockPokemonService)
 	h := &Handler{pkmnSvc: mockSvc}
-
-	app.Get("/pokemon/:name", h.GetPokemon)
+	h.Register(app)
 
 	expected := &types.GetPokemonResult{Pokemon: &types.Pokemon{Name: "Pikachu", Desc: "An electric pokemon"}, Warnings: []string{"translation failed"}}
-	ctx := context.Background()
-	mockSvc.On("GetPokemon", ctx, "pikachu", false).Return(expected, nil)
+	mockSvc.On("GetPokemon", mock.Anything, "pikachu", false).Return(expected, nil)
 
-	req := httptest.NewRequest("GET", "/pokemon/pikachu", nil)
+	req := httptest.NewRequest("GET", "/api/v1/pokemon/pikachu", nil)
 	resp, _ := app.Test(req, -1)
 
 	body, _ := io.ReadAll(resp.Body)
@@ -70,13 +68,11 @@ func TestGetPokemon_NotFound(t *testing.T) {
 	app := fiber.New()
 	mockSvc := new(mockPokemonService)
 	h := &Handler{pkmnSvc: mockSvc}
+	h.Register(app)
 
-	app.Get("/pokemon/:name", h.GetPokemon)
+	mockSvc.On("GetPokemon", mock.Anything, "missing", false).Return(&types.GetPokemonResult{}, types.ErrNotFound)
 
-	ctx := context.Background()
-	mockSvc.On("GetPokemon", ctx, "missing", false).Return(&types.GetPokemonResult{}, types.ErrNotFound)
-
-	req := httptest.NewRequest("GET", "/pokemon/missing", nil)
+	req := httptest.NewRequest("GET", "/api/v1/pokemon/missing", nil)
 	resp, _ := app.Test(req, -1)
 	body, _ := io.ReadAll(resp.Body)
 
@@ -88,14 +84,49 @@ func TestGetPokemon_InternalError(t *testing.T) {
 	app := fiber.New()
 	mockSvc := new(mockPokemonService)
 	h := &Handler{pkmnSvc: mockSvc}
+	h.Register(app)
 
-	app.Get("/pokemon/:name", h.GetPokemon)
+	mockSvc.On("GetPokemon", mock.Anything, "pikachu", false).Return(&types.GetPokemonResult{}, errors.New("db failure"))
 
-	ctx := context.Background()
-	mockSvc.On("GetPokemon", ctx, "pikachu", false).Return(&types.GetPokemonResult{}, errors.New("db failure"))
-
-	req := httptest.NewRequest("GET", "/pokemon/pikachu", nil)
+	req := httptest.NewRequest("GET", "/api/v1/pokemon/pikachu", nil)
 	resp, _ := app.Test(req, -1)
 
 	assert.Equal(t, 500, resp.StatusCode)
+}
+
+type slowMockPokemonService struct {
+	mock.Mock
+}
+
+func (m *slowMockPokemonService) GetPokemon(ctx context.Context, name string, translated bool) (*types.GetPokemonResult, error) {
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-time.After(2 * time.Second):
+		return &types.GetPokemonResult{Pokemon: &types.Pokemon{Name: "pikachu"}}, nil
+	}
+}
+
+func TestGetPokemonTimeout(t *testing.T) {
+
+	app := fiber.New()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	app.Use(func(c *fiber.Ctx) error {
+		defer cancel()
+		c.SetUserContext(ctx)
+		return c.Next()
+	})
+
+	svc := new(slowMockPokemonService)
+	svc.On("GetPokemon", mock.Anything, "pikachu", false).
+		Return(&types.GetPokemonResult{Pokemon: &types.Pokemon{Name: "pikachu"}}, nil)
+
+	h := NewHandler(svc)
+	h.Register(app)
+
+	req := httptest.NewRequest("GET", "/api/v1/pokemon/pikachu", nil)
+	resp, _ := app.Test(req, -1)
+
+	assert.Equal(t, fiber.StatusGatewayTimeout, resp.StatusCode)
 }
